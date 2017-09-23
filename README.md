@@ -9,3 +9,5 @@ The demo shows how to:
 - define conditional probability table to random variables (statistically defining)
 - setting observed values
 - performing inference and computing the desired statistic
+
+The following program is BSD licensed. However, the Infer.NET library has its own, more restrictive licence. Please check the Infer.NET license for more details.
