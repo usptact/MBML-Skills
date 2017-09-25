@@ -52,8 +52,10 @@ namespace MBMLSkills
 			using (Variable.IfNot(hasSkills4))
 				isCorrect4.SetTo(Variable.Bernoulli(0.2));
             
-            InferenceEngine engine = new InferenceEngine();
-            engine.ShowProgress = false;
+            InferenceEngine engine = new InferenceEngine(new ExpectationPropagation());
+            //engine.ShowProgress = false;
+
+            isCorrect4.AddAttribute(new TraceMessages());
 
             // setting observed values and doing inference
             // set different observed values and see the result
