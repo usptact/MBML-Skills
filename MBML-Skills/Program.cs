@@ -4,6 +4,8 @@
 //
 
 using System;
+using System.Collections.Generic;
+using System.IO;
 using MicrosoftResearch.Infer;
 using MicrosoftResearch.Infer.Distributions;
 using MicrosoftResearch.Infer.Models;
@@ -14,60 +16,120 @@ namespace MBMLSkills
     {
         public static void Main(string[] args)
         {
-            // hidden RVs, fixed factor Bernoulli(0.5)
-            Variable<bool> csharp = Variable.Bernoulli(0.5);
-            Variable<bool> sql = Variable.Bernoulli(0.5);
+			//
+			// Read data files
+			//
 
-            // declare variables but don't define statistically yet (no factor attached)
-            Variable<bool> isCorrect1 = Variable.New<bool>();
-            Variable<bool> isCorrect2 = Variable.New<bool>();
-            Variable<bool> isCorrect3 = Variable.New<bool>();
-            Variable<bool> isCorrect4 = Variable.New<bool>();
+			List<string[]> skillsNeededData = GetSkillsNeededData();
+            int[][] skillsNeeded = List2Array(skillsNeededData);
+            int[] sizes = GetQuestionSizes(skillsNeeded);
 
-            // defined as AND(csharp, sql)
-            Variable<bool> hasSkills3 = csharp & sql;
-            Variable<bool> hasSkills4 = csharp & sql;
+            return;
 
-            // set CPT for isCorrect1
-            using (Variable.If(csharp))
-                isCorrect1.SetTo(Variable.Bernoulli(0.9));
-            using (Variable.IfNot(csharp))
-				isCorrect1.SetTo(Variable.Bernoulli(0.2));
+            //
+            // ranges
+            //
 
-			// set CPT for isCorrect2
-			using (Variable.If(sql))
-				isCorrect2.SetTo(Variable.Bernoulli(0.9));
-            using (Variable.IfNot(sql))
-				isCorrect2.SetTo(Variable.Bernoulli(0.2));
+            Range skills = new Range(7);
+            Range questions = new Range(sizes.Length);
 
-			// set CPT for isCorrect3
-			using (Variable.If(hasSkills3))
-				isCorrect3.SetTo(Variable.Bernoulli(0.9));
-            using (Variable.IfNot(hasSkills3))
-				isCorrect3.SetTo(Variable.Bernoulli(0.2));
+            //
+            // model variables
+            //
 
-			// set CPT for isCorrect4
-			using (Variable.If(hasSkills4))
-				isCorrect4.SetTo(Variable.Bernoulli(0.9));
-			using (Variable.IfNot(hasSkills4))
-				isCorrect4.SetTo(Variable.Bernoulli(0.2));
+            VariableArray<bool> skill = Variable.Array<bool>(skills);
+            skill[skills] = Variable.Bernoulli(0.5).ForEach(skills);
+
+            // building a jagged 1-D array of 1-D arrays
+            VariableArray<int> sizesVar = Variable.Constant(sizes, questions);
+            Range feature = new Range(sizesVar[questions]);
+            var relevantSkills = Variable.Array(Variable.Array<bool>(feature), questions);
+
+            //
+            // model
+            //
+
+            using (var b = Variable.ForEach(questions))
+            {
+                var idx = b.Index;
+                //relevantSkills[questions] = Variable.Subarray<bool>(skill, skillsNeeded[idx]);
+            }
+
+            //
+            // inference
+            //
             
-            InferenceEngine engine = new InferenceEngine(new ExpectationPropagation());
-            //engine.ShowProgress = false;
-
-            isCorrect4.AddAttribute(new TraceMessages());
-
-            // setting observed values and doing inference
-            // set different observed values and see the result
-            isCorrect1.ObservedValue = true;
-            isCorrect2.ObservedValue = false;
-            isCorrect3.ObservedValue = true;
-            isCorrect3.ObservedValue = true;
-            Console.WriteLine("P(csharp=True|isCorrect1=true, isCorrect2=false, isCorrect3=true, isCorrect4=true) = {0}", engine.Infer<Bernoulli>(csharp).GetProbTrue());
-            Console.WriteLine("P(sql=True|isCorrect1=true, isCorrect2=false, isCorrect3=true, isCorrect4=true) = {0}", engine.Infer<Bernoulli>(sql).GetProbTrue());
+            InferenceEngine engine = new InferenceEngine();
 
             Console.WriteLine("\nPress any key ...");
             Console.ReadKey();
         }
+
+        /// <summary>
+        /// Reads "skillsNeeded" matrix from the fixed text file.
+        /// </summary>
+        /// <returns>The "relevantSkills" list of string[]</returns>
+        public static List<string[]> GetSkillsNeededData()
+        {
+            string path = @"/Users/vlad/Projects/MBML-Skills/MBML-Skills/data/LearningSkills_Real_Data_Experiments-Original-Inputs-Quiz-SkillsQuestionsMask.csv";
+            List<string[]> list = new List<string[]>();
+            using(var reader = new StreamReader(path))
+            {
+                while(!reader.EndOfStream)
+                {
+                    var line = reader.ReadLine();
+                    var values = line.Split(',');
+                    list.Add(values);
+                }
+            }
+            return list;
+        }
+
+        /// <summary>
+        /// Converts "skillsNeeded" list repr. to ragged array
+        /// </summary>
+        /// <returns>The array.</returns>
+        /// <param name="list">List.</param>
+        public static int[][] List2Array(List<string[]> list)
+        {
+            int numQuestions = list.Count;
+            int[][] skillsNeeded = new int[numQuestions][];
+            for (int i = 0; i < numQuestions; i++)
+            {
+                string[] values = list[i];
+                int numSkills = 0;
+                for (int j = 0; j < values.Length; j++)
+                {
+                    if (values[j] == "True")
+                        numSkills++;
+                }
+                skillsNeeded[i] = new int[numSkills];
+                int pos = 0;
+                for (int j = 0; j < values.Length; j++)
+                {
+                    if (values[j] == "True") 
+                    {
+                        skillsNeeded[i][pos] = j;
+                        pos++;
+                    }
+                }
+            }
+            return skillsNeeded;
+        }
+
+        /// <summary>
+        /// Gets the question sizes: number of skills per question
+        /// </summary>
+        /// <returns>The question sizes.</returns>
+        /// <param name="list">List.</param>
+        public static int[] GetQuestionSizes(int[][] relevantSkills)
+        {
+            int numQuestions = relevantSkills.Length;
+            int[] sizes = new int[numQuestions];
+            for (int i = 0; i < numQuestions; i++)
+                sizes[i] = relevantSkills[i].Length;
+            return sizes;
+        }
+
     }
 }
