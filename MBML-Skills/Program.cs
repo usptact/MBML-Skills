@@ -6,32 +6,44 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Microsoft.VisualBasic.FileIO;
 using MicrosoftResearch.Infer;
-using MicrosoftResearch.Infer.Distributions;
 using MicrosoftResearch.Infer.Models;
 
 namespace MBMLSkills
 {
     class MainClass
     {
+        const string skillsQuestionsFile = @"/Users/vlad/Projects/MBML-Skills/MBML-Skills/data/LearningSkills_Real_Data_Experiments-Original-Inputs-Quiz-SkillsQuestionsMask.csv";
+        const string rawResponsesFile = @"/Users/vlad/Projects/MBML-Skills/MBML-Skills/data/LearningSkills_Real_Data_Experiments-Original-Inputs-RawResponsesAsDictionary.csv";
+
         public static void Main(string[] args)
         {
-			//
-			// Read data files
-			//
+            //
+            // Read data files
+            //
 
-			List<string[]> skillsNeededData = GetSkillsNeededData();
-            int[][] skillsNeeded = List2Array(skillsNeededData);
-            int[] sizes = GetQuestionSizes(skillsNeeded);
+            var skillsQuestionsData = ReadCSV(skillsQuestionsFile);
+            var rawResponsesData = ReadCSV(rawResponsesFile);
 
-            return;
+            //
+            // Extract data from read files
+            //
+
+            int[] trueAnswers = GetTrueAnswersData(rawResponsesData);
+
+            int[][] skillsNeededData = GetSkillsNeededData(skillsQuestionsData);
+            int[] sizes = GetQuestionSizes(skillsNeededData);
+
+            int numSkills = 7;
+            int numQuestions = sizes.Length;
 
             //
             // ranges
             //
 
-            Range skills = new Range(7);
-            Range questions = new Range(sizes.Length);
+            Range skills = new Range(numSkills);
+            Range questions = new Range(numQuestions);
 
             //
             // model variables
@@ -40,19 +52,46 @@ namespace MBMLSkills
             VariableArray<bool> skill = Variable.Array<bool>(skills);
             skill[skills] = Variable.Bernoulli(0.5).ForEach(skills);
 
-            // building a jagged 1-D array of 1-D arrays
-            VariableArray<int> sizesVar = Variable.Constant(sizes, questions);
-            Range feature = new Range(sizesVar[questions]);
-            var relevantSkills = Variable.Array(Variable.Array<bool>(feature), questions);
+            // helper variable array: question sizes
+            // each question has some number of skills to be answered correctly
+            var questionSizesArray = Variable.Array<int>(questions);
+            questionSizesArray.ObservedValue = sizes;
+            Range questionSizes = new Range(questionSizesArray[questions]);
+
+            // skillsNeeded: building a jagged 1-D array of 1-D arrays
+            var skillsNeeded = Variable.Array(Variable.Array<int>(questionSizes), questions);
+            skillsNeeded.ObservedValue = skillsNeededData;
+
+            // relevantSkills: building a jagged 1-D array of 1-D arrays
+            var relevantSkills = Variable.Array(Variable.Array<bool>(questionSizes), questions);
+
+            VariableArray<bool> hasSkills = Variable.Array<bool>(questions);
+
+            VariableArray<bool> isCorrect = Variable.Array<bool>(questions);
 
             //
             // model
             //
 
-            using (var b = Variable.ForEach(questions))
+            using (Variable.ForEach(questions))
             {
-                var idx = b.Index;
-                //relevantSkills[questions] = Variable.Subarray<bool>(skill, skillsNeeded[idx]);
+                // pick subset of skills that are needed to answer the question
+                relevantSkills[questions] = Variable.Subarray<bool>(skill, skillsNeeded[questions]);
+
+                // all skills are required to answer the question
+                hasSkills[questions] = VariableArrayAnd(relevantSkills[questions]);
+
+                // AddNoise factor: flip the coin #1 for picking what to return
+                Variable<bool> coin1 = Variable.Bernoulli(0.5);
+
+                // flip the coin #2 in case coin #1 shows that a random result should be returned
+                Variable<bool> coin2 = Variable.Bernoulli(0.5);
+
+                // AddNoise logic
+                using (Variable.If(coin1))
+                    isCorrect[questions] = hasSkills[questions];
+                using (Variable.IfNot(coin1))
+                    isCorrect[questions] = coin2;
             }
 
             //
@@ -66,31 +105,63 @@ namespace MBMLSkills
         }
 
         /// <summary>
-        /// Reads "skillsNeeded" matrix from the fixed text file.
+        /// Reads the csv file into a list of fields (string[])
         /// </summary>
-        /// <returns>The "relevantSkills" list of string[]</returns>
-        public static List<string[]> GetSkillsNeededData()
+        /// <returns>List of fields</returns>
+        /// <param name="path">Full path to a CSV file</param>
+        public static List<string[]> ReadCSV(string path)
         {
-            string path = @"/Users/vlad/Projects/MBML-Skills/MBML-Skills/data/LearningSkills_Real_Data_Experiments-Original-Inputs-Quiz-SkillsQuestionsMask.csv";
             List<string[]> list = new List<string[]>();
-            using(var reader = new StreamReader(path))
+            using (TextFieldParser parser = new TextFieldParser(@path))
             {
-                while(!reader.EndOfStream)
+                parser.TextFieldType = FieldType.Delimited;
+                parser.SetDelimiters(",");
+                while (!parser.EndOfData)
                 {
-                    var line = reader.ReadLine();
-                    var values = line.Split(',');
-                    list.Add(values);
+                    string[] fields = parser.ReadFields();
+                    list.Add(fields);
                 }
             }
             return list;
         }
 
         /// <summary>
-        /// Converts "skillsNeeded" list repr. to ragged array
+        /// Perform And operation over all bool RVs in a VariableArray
+        /// </summary>
+        /// <returns>The variable array And.</returns>
+        /// <param name="x">Variable array of bool RVs</param>
+        public static Variable<bool> VariableArrayAnd(VariableArray<bool> x)
+        {
+            Variable<bool> result = Variable.New<bool>();
+            Range r = x.Range;
+            using(var b = Variable.ForEach(r))
+            {
+                var idx = b.Index;
+                using (Variable.If(idx==0))
+                    result = x[r];
+                using (Variable.If(idx>0))
+                    result = result & x[r];
+            }
+            return result;
+        }
+
+        public static int[] GetTrueAnswersData(List<string[]> list)
+        {
+            string[] fields = list[1];
+            int numQuestions = fields.Length - 8;
+            int[] trueAnswers = new int[numQuestions];
+            for (int i = 8; i < fields.Length; i++)
+                trueAnswers[i - 8] = Int32.Parse(fields[i]);
+            return trueAnswers;
+        }
+
+        /// <summary>
+        /// Returns skillsNeeded data from a list.
+        /// See ReadCSV() to read the CSV file first into a list.
         /// </summary>
         /// <returns>The array.</returns>
         /// <param name="list">List.</param>
-        public static int[][] List2Array(List<string[]> list)
+        public static int[][] GetSkillsNeededData(List<string[]> list)
         {
             int numQuestions = list.Count;
             int[][] skillsNeeded = new int[numQuestions][];

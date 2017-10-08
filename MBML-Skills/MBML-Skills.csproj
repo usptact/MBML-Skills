@@ -36,6 +36,7 @@
     <Reference Include="Infer.Runtime">
       <HintPath>..\..\..\Downloads\Infer.NET 2.6\Bin\Infer.Runtime.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.VisualBasic" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
