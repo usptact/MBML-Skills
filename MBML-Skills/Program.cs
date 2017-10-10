@@ -9,6 +9,7 @@ using System.IO;
 using Microsoft.VisualBasic.FileIO;
 using MicrosoftResearch.Infer;
 using MicrosoftResearch.Infer.Models;
+using MicrosoftResearch.Infer.Distributions;
 
 namespace MBMLSkills
 {
@@ -45,8 +46,8 @@ namespace MBMLSkills
             // ranges
             //
 
-            Range skills = new Range(numSkills);
-            Range questions = new Range(numQuestions);
+            Range skills = new Range(numSkills).Named("skills");
+            Range questions = new Range(numQuestions).Named("questions");
 
             //
             // model variables
@@ -59,7 +60,7 @@ namespace MBMLSkills
             // each question has some number of skills to be answered correctly
             var questionSizesArray = Variable.Array<int>(questions);
             questionSizesArray.ObservedValue = sizes;
-            Range questionSizes = new Range(questionSizesArray[questions]);
+            Range questionSizes = new Range(questionSizesArray[questions]).Named("questionSizes");
 
             // skillsNeeded: building a jagged 1-D array of 1-D arrays
             var skillsNeeded = Variable.Array(Variable.Array<int>(questionSizes), questions);
@@ -100,11 +101,32 @@ namespace MBMLSkills
             //
             // inference
             //
-            
+
             InferenceEngine engine = new InferenceEngine();
+
+            for (int i = 0; i < numPersons; i++)
+            {
+                isCorrect.ObservedValue = BuildIsCorrect(trueAnswers, personAnswers[i]);
+                Beta[] hasSkillsMarginal = engine.Infer<Beta[]>(hasSkills);
+                Console.WriteLine("PERSON #{0} has skills:", i+1);
+                Console.WriteLine(hasSkillsMarginal);
+                Console.WriteLine("");
+            }
 
             Console.WriteLine("\nPress any key ...");
             Console.ReadKey();
+        }
+
+        public static bool[] BuildIsCorrect(int[] trueAnswers, int[] personAnswers)
+        {
+            int numQuestions = trueAnswers.Length;
+            bool[] isCorrect = new bool[numQuestions];
+            for (int i = 0; i < numQuestions; i++)
+                if (trueAnswers[i] == personAnswers[i])
+                    isCorrect[i] = true;
+                else
+                    isCorrect[i] = false;
+            return isCorrect;
         }
 
         /// <summary>
