@@ -31,10 +31,13 @@ namespace MBMLSkills
             //
 
             int[] trueAnswers = GetTrueAnswersData(rawResponsesData);
+            int[][] personAnswers = GetPersonAnswerData(rawResponsesData);
+            bool[][] personSkills = GetPersonSkillData(rawResponsesData);
 
             int[][] skillsNeededData = GetSkillsNeededData(skillsQuestionsData);
             int[] sizes = GetQuestionSizes(skillsNeededData);
 
+            int numPersons = personAnswers.Length;
             int numSkills = 7;
             int numQuestions = sizes.Length;
 
@@ -148,11 +151,46 @@ namespace MBMLSkills
         public static int[] GetTrueAnswersData(List<string[]> list)
         {
             string[] fields = list[1];
-            int numQuestions = fields.Length - 8;
+            int numQuestions = fields.Length - 8; // minus 1 id and 7 skill columns
             int[] trueAnswers = new int[numQuestions];
             for (int i = 8; i < fields.Length; i++)
                 trueAnswers[i - 8] = Int32.Parse(fields[i]);
             return trueAnswers;
+        }
+
+        public static int[][] GetPersonAnswerData(List<string[]> list)
+        {
+            int numPersons = list.Count - 2;    // minus header and true answers lines
+            int[][] personAnswers = new int[numPersons][];
+            for (int i = 2; i < list.Count; i++)
+            {
+                string[] fields = list[i];
+                int numQuestions = fields.Length - 8;
+                personAnswers[i - 2] = new int[numQuestions];
+                for (int j = 8; j < fields.Length; j++)
+                    personAnswers[i - 2][j - 8] = Int32.Parse(fields[j]);
+            }
+            return personAnswers;
+        }
+
+        public static bool[][] GetPersonSkillData(List<string[]> list)
+        {
+            int numPersons = list.Count - 2;
+            bool[][] personSkills = new bool[numPersons][];
+            for (int i = 2; i < list.Count; i++)
+            {
+                string[] fields = list[i];
+                int numSkills = 7;
+                personSkills[i - 2] = new bool[numSkills];
+                for (int j = 1; j < 8; j++)
+                {
+                    if (fields[j] == "True")
+                        personSkills[i - 2][j - 1] = true;
+                    if (fields[j] == "False")
+                        personSkills[i - 2][j - 1] = false;
+				}
+            }
+            return personSkills;
         }
 
         /// <summary>
