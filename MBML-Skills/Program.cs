@@ -53,17 +53,17 @@ namespace MBMLSkills
             // model variables
             //
 
-            VariableArray<bool> skill = Variable.Array<bool>(skills);
+            VariableArray<bool> skill = Variable.Array<bool>(skills).Named("skillArray");
             skill[skills] = Variable.Bernoulli(0.5).ForEach(skills);
 
             // helper variable array: question sizes
             // each question has some number of skills to be answered correctly
-            var questionSizesArray = Variable.Array<int>(questions);
+            var questionSizesArray = Variable.Array<int>(questions).Named("questionSizesArray");
             questionSizesArray.ObservedValue = sizes;
             Range questionSizes = new Range(questionSizesArray[questions]).Named("questionSizes");
 
             // skillsNeeded: building a jagged 1-D array of 1-D arrays
-            var skillsNeeded = Variable.Array(Variable.Array<int>(questionSizes), questions);
+            var skillsNeeded = Variable.Array(Variable.Array<int>(questionSizes), questions).Named("skillsNeeded");
             skillsNeeded.ObservedValue = skillsNeededData;
 
             // relevantSkills: building a jagged 1-D array of 1-D arrays
@@ -83,10 +83,11 @@ namespace MBMLSkills
                 relevantSkills[questions] = Variable.Subarray<bool>(skill, skillsNeeded[questions]);
 
                 // all skills are required to answer the question
-                hasSkills[questions] = VariableArrayAnd(relevantSkills[questions]);
+                //hasSkills[questions] = VariableArrayAnd(relevantSkills[questions]);
+                hasSkills[questions] = Variable.AllTrue(relevantSkills[questions]);
 
                 // AddNoise factor: flip the coin #1 for picking what to return
-                Variable<bool> coin1 = Variable.Bernoulli(0.5);
+                Variable<bool> coin1 = Variable.Bernoulli(0.8);
 
                 // flip the coin #2 in case coin #1 shows that a random result should be returned
                 Variable<bool> coin2 = Variable.Bernoulli(0.5);
@@ -107,9 +108,13 @@ namespace MBMLSkills
             for (int i = 0; i < numPersons; i++)
             {
                 isCorrect.ObservedValue = BuildIsCorrect(trueAnswers, personAnswers[i]);
-                Beta[] hasSkillsMarginal = engine.Infer<Beta[]>(hasSkills);
+                Bernoulli[] hasSkillsMarginal = engine.Infer<Bernoulli[]>(hasSkills);
                 Console.WriteLine("PERSON #{0} has skills:", i+1);
-                Console.WriteLine(hasSkillsMarginal);
+                for (int j = 0; j < numSkills; j++){
+                    Console.Write(hasSkillsMarginal[j].GetProbTrue());
+                    Console.Write(" ");
+                }
+                //Console.WriteLine(hasSkillsMarginal);
                 Console.WriteLine("");
             }
 
