@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using Microsoft.VisualBasic.FileIO;
 using MicrosoftResearch.Infer;
 using MicrosoftResearch.Infer.Models;
@@ -66,11 +65,9 @@ namespace MBMLSkills
             var skillsNeeded = Variable.Array(Variable.Array<int>(questionSizes), questions).Named("skillsNeeded");
             skillsNeeded.ObservedValue = skillsNeededData;
 
-            // relevantSkills: building a jagged 1-D array of 1-D arrays
             var relevantSkills = Variable.Array(Variable.Array<bool>(questionSizes), questions);
 
             VariableArray<bool> hasSkills = Variable.Array<bool>(questions);
-
             VariableArray<bool> isCorrect = Variable.Array<bool>(questions);
 
             //
@@ -83,7 +80,6 @@ namespace MBMLSkills
                 relevantSkills[questions] = Variable.Subarray<bool>(skill, skillsNeeded[questions]);
 
                 // all skills are required to answer the question
-                //hasSkills[questions] = VariableArrayAnd(relevantSkills[questions]);
                 hasSkills[questions] = Variable.AllTrue(relevantSkills[questions]);
 
                 // AddNoise factor: flip the coin #1 for picking what to return
