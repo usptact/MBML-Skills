@@ -83,10 +83,10 @@ namespace MBMLSkills
                 hasSkills[questions] = Variable.AllTrue(relevantSkills[questions]);
 
                 // AddNoise factor: flip the coin #1 for picking what to return
-                Variable<bool> coin1 = Variable.Bernoulli(0.8);
+                Variable<bool> coin1 = Variable.Bernoulli(0.9);
 
                 // flip the coin #2 in case coin #1 shows that a random result should be returned
-                Variable<bool> coin2 = Variable.Bernoulli(0.5);
+                Variable<bool> coin2 = Variable.Bernoulli(0.2);
 
                 // AddNoise logic
                 using (Variable.If(coin1))
