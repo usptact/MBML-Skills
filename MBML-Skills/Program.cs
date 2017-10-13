@@ -4,6 +4,7 @@
 //
 
 using System;
+using System.IO;
 using System.Collections.Generic;
 using Microsoft.VisualBasic.FileIO;
 using MicrosoftResearch.Infer;
@@ -14,11 +15,18 @@ namespace MBMLSkills
 {
     class MainClass
     {
-        const string skillsQuestionsFile = @"/Users/vlad/Projects/MBML-Skills/MBML-Skills/data/LearningSkills_Real_Data_Experiments-Original-Inputs-Quiz-SkillsQuestionsMask.csv";
-        const string rawResponsesFile = @"/Users/vlad/Projects/MBML-Skills/MBML-Skills/data/LearningSkills_Real_Data_Experiments-Original-Inputs-RawResponsesAsDictionary.csv";
-
         public static void Main(string[] args)
         {
+            //
+            // Path to data files
+            //
+
+            string skillsQuestionsFile = @"LearningSkills_Real_Data_Experiments-Original-Inputs-Quiz-SkillsQuestionsMask.csv";
+            skillsQuestionsFile = Path.Combine("..", "..", "data", skillsQuestionsFile);
+
+            string rawResponsesFile = @"LearningSkills_Real_Data_Experiments-Original-Inputs-RawResponsesAsDictionary.csv";
+            rawResponsesFile = Path.Combine("..", "..", "data", rawResponsesFile);
+            
             //
             // Read data files
             //
