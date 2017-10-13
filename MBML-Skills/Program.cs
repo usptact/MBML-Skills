@@ -10,6 +10,7 @@ using Microsoft.VisualBasic.FileIO;
 using MicrosoftResearch.Infer;
 using MicrosoftResearch.Infer.Models;
 using MicrosoftResearch.Infer.Distributions;
+using MicrosoftResearch.Infer.Utils;
 
 namespace MBMLSkills
 {
@@ -40,19 +41,19 @@ namespace MBMLSkills
 
             int[] trueAnswers = GetTrueAnswersData(rawResponsesData);
             int[][] personAnswers = GetPersonAnswerData(rawResponsesData);
-            bool[][] personSkills = GetPersonSkillData(rawResponsesData);
+            bool[][] personSkills = GetPersonSkillData(rawResponsesData);       // personSkills[person][skills]
 
-            int[][] skillsNeededData = GetSkillsNeededData(skillsQuestionsData);
-            int[] sizes = GetQuestionSizes(skillsNeededData);
+            int[][] skillsRequired = GetSkillsNeededData(skillsQuestionsData);  // skillsRequired[question][skill]
 
             int numPersons = personAnswers.Length;
-            int numSkills = 7;
-            int numQuestions = sizes.Length;
+            int numSkills = personSkills[0].Length;
+            int numQuestions = skillsRequired.Length;
 
             //
             // ranges
             //
 
+            Range person = new Range(numPersons).Named("persons");
             Range skills = new Range(numSkills).Named("skills");
             Range questions = new Range(numQuestions).Named("questions");
 
@@ -66,12 +67,13 @@ namespace MBMLSkills
             // helper variable array: question sizes
             // each question has some number of skills to be answered correctly
             var questionSizesArray = Variable.Array<int>(questions).Named("questionSizesArray");
-            questionSizesArray.ObservedValue = sizes;
+            questionSizesArray.ObservedValue = Util.ArrayInit(numQuestions, q => skillsRequired[q].Length);
             Range questionSizes = new Range(questionSizesArray[questions]).Named("questionSizes");
 
             // skillsNeeded: building a jagged 1-D array of 1-D arrays
             var skillsNeeded = Variable.Array(Variable.Array<int>(questionSizes), questions).Named("skillsNeeded");
-            skillsNeeded.ObservedValue = skillsNeededData;
+            skillsNeeded.ObservedValue = skillsRequired;
+            skillsNeeded.SetValueRange(skills);
 
             var relevantSkills = Variable.Array(Variable.Array<bool>(questionSizes), questions);
 
@@ -90,17 +92,11 @@ namespace MBMLSkills
                 // all skills are required to answer the question
                 hasSkills[questions] = Variable.AllTrue(relevantSkills[questions]);
 
-                // AddNoise factor: flip the coin #1 for picking what to return
-                Variable<bool> coin1 = Variable.Bernoulli(0.9);
-
-                // flip the coin #2 in case coin #1 shows that a random result should be returned
-                Variable<bool> coin2 = Variable.Bernoulli(0.2);
-
                 // AddNoise logic
-                using (Variable.If(coin1))
-                    isCorrect[questions] = hasSkills[questions];
-                using (Variable.IfNot(coin1))
-                    isCorrect[questions] = coin2;
+                using (Variable.If(hasSkills[questions]))
+                    isCorrect[questions] = Variable.Bernoulli(0.9);
+                using (Variable.IfNot(hasSkills[questions]))
+                    isCorrect[questions] = Variable.Bernoulli(0.1);
             }
 
             //
@@ -113,12 +109,12 @@ namespace MBMLSkills
             {
                 isCorrect.ObservedValue = BuildIsCorrect(trueAnswers, personAnswers[i]);
                 Bernoulli[] hasSkillsMarginal = engine.Infer<Bernoulli[]>(hasSkills);
-                Console.WriteLine("PERSON #{0} has skills:", i+1);
+                Console.WriteLine("PERSON #{0} has skills: ", i+1);
                 for (int j = 0; j < numSkills; j++){
-                    Console.Write(hasSkillsMarginal[j].GetProbTrue());
+                    string s = string.Format("{0:N3}", hasSkillsMarginal[j].GetProbTrue());
+                    Console.Write(s);
                     Console.Write(" ");
                 }
-                //Console.WriteLine(hasSkillsMarginal);
                 Console.WriteLine("");
             }
 
@@ -157,26 +153,6 @@ namespace MBMLSkills
                 }
             }
             return list;
-        }
-
-        /// <summary>
-        /// Perform And operation over all bool RVs in a VariableArray
-        /// </summary>
-        /// <returns>The variable array And.</returns>
-        /// <param name="x">Variable array of bool RVs</param>
-        public static Variable<bool> VariableArrayAnd(VariableArray<bool> x)
-        {
-            Variable<bool> result = Variable.New<bool>();
-            Range r = x.Range;
-            using(var b = Variable.ForEach(r))
-            {
-                var idx = b.Index;
-                using (Variable.If(idx==0))
-                    result = x[r];
-                using (Variable.If(idx>0))
-                    result = result & x[r];
-            }
-            return result;
         }
 
         public static int[] GetTrueAnswersData(List<string[]> list)
@@ -255,20 +231,6 @@ namespace MBMLSkills
                 }
             }
             return skillsNeeded;
-        }
-
-        /// <summary>
-        /// Gets the question sizes: number of skills per question
-        /// </summary>
-        /// <returns>The question sizes.</returns>
-        /// <param name="list">List.</param>
-        public static int[] GetQuestionSizes(int[][] relevantSkills)
-        {
-            int numQuestions = relevantSkills.Length;
-            int[] sizes = new int[numQuestions];
-            for (int i = 0; i < numQuestions; i++)
-                sizes[i] = relevantSkills[i].Length;
-            return sizes;
         }
 
     }
