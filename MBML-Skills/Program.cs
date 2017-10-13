@@ -108,10 +108,10 @@ namespace MBMLSkills
             for (int i = 0; i < numPersons; i++)
             {
                 isCorrect.ObservedValue = BuildIsCorrect(trueAnswers, personAnswers[i]);
-                Bernoulli[] hasSkillsMarginal = engine.Infer<Bernoulli[]>(hasSkills);
+                Bernoulli[] skillMarginal = engine.Infer<Bernoulli[]>(skill);
                 Console.WriteLine("PERSON #{0} has skills: ", i+1);
                 for (int j = 0; j < numSkills; j++){
-                    string s = string.Format("{0:N3}", hasSkillsMarginal[j].GetProbTrue());
+                    string s = string.Format("{0:N3}", skillMarginal[j].GetProbTrue());
                     Console.Write(s);
                     Console.Write(" ");
                 }
