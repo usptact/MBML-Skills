@@ -18,25 +18,35 @@ namespace MBMLSkills
     {
         public static void Main(string[] args)
         {
-	    int[][] X;
-            SampleSkillsNeededData(5, 10, out X);
+            int numSkills = 5;
+            int numQuestions = 10;
+            int numPersons = 50;
 
-            return;
+            int[][] skillsNeededData;
+            bool[][] personSkillsData;
+            bool[][] isCorrectData;
+
+            SampleSkillsNeededData(numSkills, numQuestions, out skillsNeededData);
+            SamplePersonSkillsData(numSkills, numPersons, out personSkillsData);
+            SampleIsCorrectData(numPersons, numQuestions, numSkills, skillsNeededData, personSkillsData, out isCorrectData);
 		
             //
             // Path to data files
             //
 
+            /*
             string skillsQuestionsFile = @"LearningSkills_Real_Data_Experiments-Original-Inputs-Quiz-SkillsQuestionsMask.csv";
             skillsQuestionsFile = Path.Combine("..", "..", "data", skillsQuestionsFile);
 
             string rawResponsesFile = @"LearningSkills_Real_Data_Experiments-Original-Inputs-RawResponsesAsDictionary.csv";
             rawResponsesFile = Path.Combine("..", "..", "data", rawResponsesFile);
+            */
             
             //
             // Read data files
             //
 
+            /*
             var skillsQuestionsData = ReadCSV(skillsQuestionsFile);
             var rawResponsesData = ReadCSV(rawResponsesFile);
 
@@ -53,6 +63,7 @@ namespace MBMLSkills
             int numPersons = personAnswers.Length;
             int numSkills = personSkills[0].Length;
             int numQuestions = skillsRequired.Length;
+            */
 
             //
             // ranges
@@ -72,12 +83,13 @@ namespace MBMLSkills
             // helper variable array: question sizes
             // each question has some number of skills to be answered correctly
             var questionSizesArray = Variable.Array<int>(questions).Named("questionSizesArray");
-            questionSizesArray.ObservedValue = Util.ArrayInit(numQuestions, q => skillsRequired[q].Length);
+            //questionSizesArray.ObservedValue = Util.ArrayInit(numQuestions, q => skillsRequired[q].Length);
+            questionSizesArray.ObservedValue = Util.ArrayInit(numQuestions, q => skillsNeededData[q].Length);
             Range questionSizes = new Range(questionSizesArray[questions]).Named("questionSizes");
 
             // skillsNeeded: building a jagged 1-D array of 1-D arrays
             var skillsNeeded = Variable.Array(Variable.Array<int>(questionSizes), questions).Named("skillsNeeded");
-            skillsNeeded.ObservedValue = skillsRequired;
+            skillsNeeded.ObservedValue = skillsNeededData;
             skillsNeeded.SetValueRange(skills);
 
             var relevantSkills = Variable.Array(Variable.Array<bool>(questionSizes), questions);
@@ -109,17 +121,28 @@ namespace MBMLSkills
             //
 
             InferenceEngine engine = new InferenceEngine();
+            engine.ShowProgress = false;
 
-            for (int i = 0; i < numPersons; i++)
+            for (int p = 0; p < numPersons; p++)
             {
-                isCorrect.ObservedValue = BuildIsCorrect(trueAnswers, personAnswers[i]);
+                var pSkills = personSkillsData[p];
+                //isCorrect.ObservedValue = BuildIsCorrect(trueAnswers, personAnswers[i]);
+                isCorrect.ObservedValue = isCorrectData[p];
                 Bernoulli[] skillMarginal = engine.Infer<Bernoulli[]>(skill);
-                Console.WriteLine("PERSON #{0} has skills: ", i+1);
+                Console.WriteLine("PERSON #{0} has skills: ", p+1);
                 for (int j = 0; j < numSkills; j++){
                     string s = string.Format("{0:N3}", skillMarginal[j].GetProbTrue());
                     Console.Write(s);
                     Console.Write(" ");
                 }
+                Console.WriteLine("");
+                for (int j = 0; j < numSkills; j++)
+                {
+                    string s = string.Format("{0:N3}", pSkills[j]);
+                    Console.Write(s);
+                    Console.Write(" ");
+                }
+                Console.WriteLine("");
                 Console.WriteLine("");
             }
 
@@ -127,7 +150,7 @@ namespace MBMLSkills
             Console.ReadKey();
         }
 	    
-	public static void SampleSkillsNeededData(int numSkills, int numQuestions, out int[][] skillsNeeded)
+	    public static void SampleSkillsNeededData(int numSkills, int numQuestions, out int[][] skillsNeeded)
         {
             skillsNeeded = new int[numQuestions][];
             var coin = new Bernoulli(0.5);
@@ -153,6 +176,36 @@ namespace MBMLSkills
                 personSkills[p] = new bool[numSkills];
                 for (int s = 0; s < numSkills; s++)
                     personSkills[p][s] = coin.Sample();
+            }
+        }
+
+        public static void SampleIsCorrectData(int numPersons, int numQuestions, int numSkills,
+                                               int[][] skillsNeeded, bool[][] personSkills,
+                                               out bool[][] isCorrect)
+        {
+            Bernoulli isCorrectCoin = new Bernoulli(0.9);
+            Bernoulli isIncorrectCoin = new Bernoulli(0.1);
+            isCorrect = new bool[numPersons][];
+            for (int p = 0; p < numPersons; p++)
+            {
+                var pSkills = personSkills[p];              // skills of p-th person
+                isCorrect[p] = new bool[numQuestions];
+                for (int q = 0; q < numQuestions; q++)
+                {
+                    var qSkills = skillsNeeded[q];          // skills needed to answer q-th question
+                    bool hasSkills = false;
+                    for (int s = 0; s < qSkills.Length; s++)
+                    {
+                        if (s == 0)
+                            hasSkills = pSkills[qSkills[s]];
+                        else
+                            hasSkills = hasSkills & pSkills[qSkills[s]];
+                    }
+                    if (hasSkills)
+                        isCorrect[p][q] = isCorrectCoin.Sample();
+                    else
+                        isCorrect[p][q] = isIncorrectCoin.Sample();
+                }
             }
         }
 
