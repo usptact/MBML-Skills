@@ -18,6 +18,11 @@ namespace MBMLSkills
     {
         public static void Main(string[] args)
         {
+	    int[][] X;
+            SampleSkillsNeededData(5, 10, out X);
+
+            return;
+		
             //
             // Path to data files
             //
@@ -120,6 +125,35 @@ namespace MBMLSkills
 
             Console.WriteLine("\nPress any key ...");
             Console.ReadKey();
+        }
+	    
+	public static void SampleSkillsNeededData(int numSkills, int numQuestions, out int[][] skillsNeeded)
+        {
+            skillsNeeded = new int[numQuestions][];
+            var coin = new Bernoulli(0.5);
+            for (int q = 0; q < numQuestions; q++)
+            {
+                List<int> skillsList = new List<int>();
+                for (int s = 0; s < numSkills; s++)
+                    if (coin.Sample())
+                        skillsList.Add(s);
+                int L = skillsList.Count;
+                skillsNeeded[q] = new int[L];
+                for (int s = 0; s < L; s++)
+                    skillsNeeded[q][s] = skillsList[s];
+            }
+        }
+
+        public static void SamplePersonSkillsData(int numSkills, int numPersons, out bool[][] personSkills)
+        {
+            personSkills = new bool[numPersons][];
+            var coin = new Bernoulli(0.5);
+            for (int p = 0; p < numPersons; p++)
+            {
+                personSkills[p] = new bool[numSkills];
+                for (int s = 0; s < numSkills; s++)
+                    personSkills[p][s] = coin.Sample();
+            }
         }
 
         public static bool[] BuildIsCorrect(int[] trueAnswers, int[] personAnswers)
