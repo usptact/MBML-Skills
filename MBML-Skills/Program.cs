@@ -22,13 +22,9 @@ namespace MBMLSkills
             int numQuestions = 10;
             int numPersons = 50;
 
-            int[][] skillsNeededData;
-            bool[][] personSkillsData;
-            bool[][] isCorrectData;
-
-            SampleSkillsNeededData(numSkills, numQuestions, out skillsNeededData);
-            SamplePersonSkillsData(numSkills, numPersons, out personSkillsData);
-            SampleIsCorrectData(numPersons, numQuestions, numSkills, skillsNeededData, personSkillsData, out isCorrectData);
+            SampleSkillsNeededData(numSkills, numQuestions, out int[][] skillsNeededData);
+            SamplePersonSkillsData(numSkills, numPersons, out bool[][] personSkillsData);
+            SampleIsCorrectData(numPersons, numQuestions, numSkills, skillsNeededData, personSkillsData, out bool[][] isCorrectData);
 		
             //
             // Path to data files
