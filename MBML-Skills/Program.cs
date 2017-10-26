@@ -18,6 +18,7 @@ namespace MBMLSkills
     {
         public static void Main(string[] args)
         {
+            /* Uncomment for synthetic data
             int numSkills = 5;
             int numQuestions = 10;
             int numPersons = 50;
@@ -25,24 +26,22 @@ namespace MBMLSkills
             SampleSkillsNeededData(numSkills, numQuestions, out int[][] skillsNeededData);
             SamplePersonSkillsData(numSkills, numPersons, out bool[][] personSkillsData);
             SampleIsCorrectData(numPersons, numQuestions, numSkills, skillsNeededData, personSkillsData, out bool[][] isCorrectData);
+            */
 		
             //
             // Path to data files
             //
 
-            /*
             string skillsQuestionsFile = @"LearningSkills_Real_Data_Experiments-Original-Inputs-Quiz-SkillsQuestionsMask.csv";
             skillsQuestionsFile = Path.Combine("..", "..", "data", skillsQuestionsFile);
 
             string rawResponsesFile = @"LearningSkills_Real_Data_Experiments-Original-Inputs-RawResponsesAsDictionary.csv";
             rawResponsesFile = Path.Combine("..", "..", "data", rawResponsesFile);
-            */
             
             //
             // Read data files
             //
 
-            /*
             var skillsQuestionsData = ReadCSV(skillsQuestionsFile);
             var rawResponsesData = ReadCSV(rawResponsesFile);
 
@@ -59,7 +58,6 @@ namespace MBMLSkills
             int numPersons = personAnswers.Length;
             int numSkills = personSkills[0].Length;
             int numQuestions = skillsRequired.Length;
-            */
 
             //
             // ranges
@@ -79,13 +77,12 @@ namespace MBMLSkills
             // helper variable array: question sizes
             // each question has some number of skills to be answered correctly
             var questionSizesArray = Variable.Array<int>(questions).Named("questionSizesArray");
-            //questionSizesArray.ObservedValue = Util.ArrayInit(numQuestions, q => skillsRequired[q].Length);
-            questionSizesArray.ObservedValue = Util.ArrayInit(numQuestions, q => skillsNeededData[q].Length);
+            questionSizesArray.ObservedValue = Util.ArrayInit(numQuestions, q => skillsRequired[q].Length);
             Range questionSizes = new Range(questionSizesArray[questions]).Named("questionSizes");
 
             // skillsNeeded: building a jagged 1-D array of 1-D arrays
             var skillsNeeded = Variable.Array(Variable.Array<int>(questionSizes), questions).Named("skillsNeeded");
-            skillsNeeded.ObservedValue = skillsNeededData;
+            skillsNeeded.ObservedValue = skillsRequired;
             skillsNeeded.SetValueRange(skills);
 
             var relevantSkills = Variable.Array(Variable.Array<bool>(questionSizes), questions);
@@ -106,10 +103,7 @@ namespace MBMLSkills
                 hasSkills[questions] = Variable.AllTrue(relevantSkills[questions]);
 
                 // AddNoise logic
-                using (Variable.If(hasSkills[questions]))
-                    isCorrect[questions] = Variable.Bernoulli(0.9);
-                using (Variable.IfNot(hasSkills[questions]))
-                    isCorrect[questions] = Variable.Bernoulli(0.1);
+                isCorrect[questions] = AddNoise(hasSkills[questions]);
             }
 
             //
@@ -121,20 +115,26 @@ namespace MBMLSkills
 
             for (int p = 0; p < numPersons; p++)
             {
-                var pSkills = personSkillsData[p];
-                //isCorrect.ObservedValue = BuildIsCorrect(trueAnswers, personAnswers[i]);
-                isCorrect.ObservedValue = isCorrectData[p];
+                //var pSkills = personSkillsData[p];
+                //isCorrect.ObservedValue = isCorrectData[p];
+
+                isCorrect.ObservedValue = BuildIsCorrect(trueAnswers, personAnswers[p]);
+
                 Bernoulli[] skillMarginal = engine.Infer<Bernoulli[]>(skill);
+
+                // print person skill marginals
                 Console.WriteLine("PERSON #{0} has skills: ", p+1);
                 for (int j = 0; j < numSkills; j++){
                     string s = string.Format("{0:N3}", skillMarginal[j].GetProbTrue());
                     Console.Write(s);
                     Console.Write(" ");
                 }
+
+                // print groundtruth skill indicators
                 Console.WriteLine("");
                 for (int j = 0; j < numSkills; j++)
                 {
-                    string s = string.Format("{0:N3}", pSkills[j]);
+                    string s = string.Format("{0:N3}", personSkills[p][j]);
                     Console.Write(s);
                     Console.Write(" ");
                 }
@@ -146,6 +146,27 @@ namespace MBMLSkills
             Console.ReadKey();
         }
 	    
+        /// <summary>
+        /// AddNoise factor
+        /// </summary>
+        /// <param name="hasSkills">True hasSkills RV</param>
+        /// <returns>Noisy version of the hasSkills RV</returns>
+        public static Variable<bool> AddNoise(Variable<bool> hasSkills)
+        {
+            var noisyIsCorrect = Variable.New<bool>();
+            using (Variable.If(hasSkills))
+                noisyIsCorrect.SetTo(Variable.Bernoulli(0.9));
+            using (Variable.IfNot(hasSkills))
+                noisyIsCorrect.SetTo(Variable.Bernoulli(0.1));
+            return noisyIsCorrect;
+        }
+
+        /// <summary>
+        /// Synthetic data: Samples question skill data
+        /// </summary>
+        /// <param name="numSkills">total number of skills</param>
+        /// <param name="numQuestions">total number of questions</param>
+        /// <param name="skillsNeeded">output array of arrays</param>
 	    public static void SampleSkillsNeededData(int numSkills, int numQuestions, out int[][] skillsNeeded)
         {
             skillsNeeded = new int[numQuestions][];
@@ -163,6 +184,12 @@ namespace MBMLSkills
             }
         }
 
+        /// <summary>
+        /// Synthetic data: Samples person skill data
+        /// </summary>
+        /// <param name="numSkills">total number of skills</param>
+        /// <param name="numPersons">total number of persons</param>
+        /// <param name="personSkills">output array of arrays</param>
         public static void SamplePersonSkillsData(int numSkills, int numPersons, out bool[][] personSkills)
         {
             personSkills = new bool[numPersons][];
@@ -175,6 +202,15 @@ namespace MBMLSkills
             }
         }
 
+        /// <summary>
+        /// Synthetic data: Samples answer data
+        /// </summary>
+        /// <param name="numPersons">total number of persons</param>
+        /// <param name="numQuestions">total number of questions</param>
+        /// <param name="numSkills">total number of skills</param>
+        /// <param name="skillsNeeded">question skills array of arrays</param>
+        /// <param name="personSkills">person skills array of arrays</param>
+        /// <param name="isCorrect">output array of arrays</param>
         public static void SampleIsCorrectData(int numPersons, int numQuestions, int numSkills,
                                                int[][] skillsNeeded, bool[][] personSkills,
                                                out bool[][] isCorrect)
@@ -205,6 +241,12 @@ namespace MBMLSkills
             }
         }
 
+        /// <summary>
+        /// Build isCorrect output comparing person answers to groundtruth
+        /// </summary>
+        /// <param name="trueAnswers">array of groundtruth answers</param>
+        /// <param name="personAnswers">array of person answers</param>
+        /// <returns>array of indicators of whether each question was correctly answered</returns>
         public static bool[] BuildIsCorrect(int[] trueAnswers, int[] personAnswers)
         {
             int numQuestions = trueAnswers.Length;
@@ -238,6 +280,11 @@ namespace MBMLSkills
             return list;
         }
 
+        /// <summary>
+        /// Parses groundtruth question answers
+        /// </summary>
+        /// <param name="list">data structure</param>
+        /// <returns>array of integers</returns>
         public static int[] GetTrueAnswersData(List<string[]> list)
         {
             string[] fields = list[1];
@@ -248,6 +295,11 @@ namespace MBMLSkills
             return trueAnswers;
         }
 
+        /// <summary>
+        /// Parses person answer data
+        /// </summary>
+        /// <param name="list">data structure</param>
+        /// <returns>array of array of ints</returns>
         public static int[][] GetPersonAnswerData(List<string[]> list)
         {
             int numPersons = list.Count - 2;    // minus header and true answers lines
@@ -263,6 +315,11 @@ namespace MBMLSkills
             return personAnswers;
         }
 
+        /// <summary>
+        /// Parses person skill self-assessment data
+        /// </summary>
+        /// <param name="list">data structure</param>
+        /// <returns>array of array of bool</returns>
         public static bool[][] GetPersonSkillData(List<string[]> list)
         {
             int numPersons = list.Count - 2;
