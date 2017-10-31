@@ -71,8 +71,8 @@ namespace MBMLSkills
             // model variables
             //
 
-            VariableArray<bool> skill = Variable.Array<bool>(skills).Named("skillArray");
-            skill[skills] = Variable.Bernoulli(0.5).ForEach(skills);
+            var skill = Variable.Array(Variable.Array<bool>(skills), person).Named("skillArray");
+            skill[person][skills] = Variable.Bernoulli(0.5).ForEach(person).ForEach(skills);
 
             // helper variable array: question sizes
             // each question has some number of skills to be answered correctly
@@ -85,47 +85,53 @@ namespace MBMLSkills
             skillsNeeded.ObservedValue = skillsRequired;
             skillsNeeded.SetValueRange(skills);
 
-            var relevantSkills = Variable.Array(Variable.Array<bool>(questionSizes), questions);
+            var probGuess = Variable.Array<double>(questions);
+            probGuess[questions] = Variable.Beta(2.5, 7.5).ForEach(questions);
 
-            VariableArray<bool> hasSkills = Variable.Array<bool>(questions);
-            VariableArray<bool> isCorrect = Variable.Array<bool>(questions);
+            var probNoMistake = Variable.Bernoulli(0.9);
+
+            var relevantSkills = Variable.Array(Variable.Array(Variable.Array<bool>(questionSizes), questions), person);
+
+            var hasSkills = Variable.Array(Variable.Array<bool>(questions), person);
+            var isCorrect = Variable.Array(Variable.Array<bool>(questions), person);
 
             //
             // model
             //
 
-            using (Variable.ForEach(questions))
+            using (Variable.ForEach(person))
             {
-                // pick subset of skills that are needed to answer the question
-                relevantSkills[questions] = Variable.Subarray<bool>(skill, skillsNeeded[questions]);
+                using (Variable.ForEach(questions))
+                {
+                    // pick subset of skills that are needed to answer the question
+                    relevantSkills[person][questions] = Variable.Subarray<bool>(skill[person], skillsNeeded[questions]);
 
-                // all skills are required to answer the question
-                hasSkills[questions] = Variable.AllTrue(relevantSkills[questions]);
+                    // all skills are required to answer the question
+                    hasSkills[person][questions] = Variable.AllTrue(relevantSkills[person][questions]);
 
-                // AddNoise logic
-                isCorrect[questions] = AddNoise(hasSkills[questions]);
+                    // Table factor
+                    using (Variable.If(hasSkills[person][questions]))
+                        isCorrect[person][questions] = probNoMistake;
+                    using (Variable.IfNot(hasSkills[person][questions]))
+                        isCorrect[person][questions] = Variable.Bernoulli(probGuess[questions]);
+                }
             }
+
+            isCorrect.ObservedValue = BuildIsCorrect(trueAnswers, personAnswers);
 
             //
             // inference
             //
 
             InferenceEngine engine = new InferenceEngine();
-            engine.ShowProgress = false;
 
+            Bernoulli[][] skillMarginal = engine.Infer<Bernoulli[][]>(skill);
             for (int p = 0; p < numPersons; p++)
             {
-                //var pSkills = personSkillsData[p];
-                //isCorrect.ObservedValue = isCorrectData[p];
-
-                isCorrect.ObservedValue = BuildIsCorrect(trueAnswers, personAnswers[p]);
-
-                Bernoulli[] skillMarginal = engine.Infer<Bernoulli[]>(skill);
-
                 // print person skill marginals
                 Console.WriteLine("PERSON #{0} has skills: ", p+1);
                 for (int j = 0; j < numSkills; j++){
-                    string s = string.Format("{0:N3}", skillMarginal[j].GetProbTrue());
+                    string s = string.Format("{0:N3}", skillMarginal[p][j].GetProbTrue());
                     Console.Write(s);
                     Console.Write(" ");
                 }
@@ -142,23 +148,15 @@ namespace MBMLSkills
                 Console.WriteLine("");
             }
 
+            Beta[] probGuessMarginal = engine.Infer<Beta[]>(probGuess);
+            for (int q = 0; q < numQuestions; q++)
+            {
+                string s = string.Format("{0:N3}", probGuessMarginal[q].GetMean());
+                Console.WriteLine("QUESTION #{0} guessing probability: #{1}", q+1, s);
+            }
+
             Console.WriteLine("\nPress any key ...");
             Console.ReadKey();
-        }
-	    
-        /// <summary>
-        /// AddNoise factor
-        /// </summary>
-        /// <param name="hasSkills">True hasSkills RV</param>
-        /// <returns>Noisy version of the hasSkills RV</returns>
-        public static Variable<bool> AddNoise(Variable<bool> hasSkills)
-        {
-            var noisyIsCorrect = Variable.New<bool>();
-            using (Variable.If(hasSkills))
-                noisyIsCorrect.SetTo(Variable.Bernoulli(0.9));
-            using (Variable.IfNot(hasSkills))
-                noisyIsCorrect.SetTo(Variable.Bernoulli(0.1));
-            return noisyIsCorrect;
         }
 
         /// <summary>
@@ -247,15 +245,20 @@ namespace MBMLSkills
         /// <param name="trueAnswers">array of groundtruth answers</param>
         /// <param name="personAnswers">array of person answers</param>
         /// <returns>array of indicators of whether each question was correctly answered</returns>
-        public static bool[] BuildIsCorrect(int[] trueAnswers, int[] personAnswers)
+        public static bool[][] BuildIsCorrect(int[] trueAnswers, int[][] personAnswers)
         {
             int numQuestions = trueAnswers.Length;
-            bool[] isCorrect = new bool[numQuestions];
-            for (int i = 0; i < numQuestions; i++)
-                if (trueAnswers[i] == personAnswers[i])
-                    isCorrect[i] = true;
-                else
-                    isCorrect[i] = false;
+            int numPersons = personAnswers.Length;
+            bool[][] isCorrect = new bool[numPersons][];
+            for (int p = 0; p < numPersons; p++)
+            {
+                isCorrect[p] = new bool[numQuestions];
+                for (int q = 0; q < numQuestions; q++)
+                    if (trueAnswers[q] == personAnswers[p][q])
+                        isCorrect[p][q] = true;
+                    else
+                        isCorrect[p][q] = false;
+            }
             return isCorrect;
         }
 
