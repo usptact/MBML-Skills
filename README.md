@@ -10,4 +10,6 @@ The demo shows how to:
 - setting observed values
 - performing inference and computing the desired statistic
 
-The following program is BSD licensed. However, the Infer.NET library has its own, more restrictive licence. Please check the Infer.NET license for more details.
+The following program is BSD licensed.
+
+Updated to use open source Infer.NET.

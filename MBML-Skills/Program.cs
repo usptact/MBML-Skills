@@ -7,10 +7,9 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using Microsoft.VisualBasic.FileIO;
-using MicrosoftResearch.Infer;
-using MicrosoftResearch.Infer.Models;
-using MicrosoftResearch.Infer.Distributions;
-using MicrosoftResearch.Infer.Utils;
+using Microsoft.ML.Probabilistic.Models;
+using Microsoft.ML.Probabilistic.Distributions;
+using Microsoft.ML.Probabilistic.Utilities;
 
 namespace MBMLSkills
 {
