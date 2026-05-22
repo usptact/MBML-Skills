@@ -11,7 +11,7 @@ static class SyntheticDataGenerator
         var skillsRequired = SampleSkillsRequired(numSkills, numQuestions);
         var personSkills   = SamplePersonSkills(numSkills, numPersons);
         var isCorrect      = SampleIsCorrect(numPersons, numQuestions, skillsRequired, personSkills);
-        return new SkillsDataset(skillsRequired, isCorrect, personSkills);
+        return SkillsDataset.Create(skillsRequired, isCorrect, personSkills);
     }
 
     static int[][] SampleSkillsRequired(int numSkills, int numQuestions)

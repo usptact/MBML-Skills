@@ -17,7 +17,7 @@ static class DataIO
         WriteBoolMatrix(Path.Combine(dir, "person_skills.csv"), data.PersonSkills);
     }
 
-    public static SkillsDataset ReadSynthetic(string dir) => new(
+    public static SkillsDataset ReadSynthetic(string dir) => SkillsDataset.Create(
         ReadSkillsRequired(Path.Combine(dir, "skills_required.csv")),
         ReadBoolMatrix(Path.Combine(dir, "is_correct.csv")),
         ReadBoolMatrix(Path.Combine(dir, "person_skills.csv"))
@@ -32,7 +32,7 @@ static class DataIO
         var responsesData = ReadCSV(Path.Combine(dir,
             "LearningSkills_Real_Data_Experiments-Original-Inputs-RawResponsesAsDictionary.csv"));
 
-        return new SkillsDataset(
+        return SkillsDataset.Create(
             ParseSkillsRequired(skillsData),
             BuildIsCorrect(ParseTrueAnswers(responsesData), ParsePersonAnswers(responsesData)),
             ParsePersonSkills(responsesData)
@@ -85,21 +85,32 @@ static class DataIO
         return list;
     }
 
+    // Counts skill columns in the header row: those starting with "S" after the ID column.
+    static int SkillColumnCount(string[] header) =>
+        header.Skip(1).TakeWhile(h => h.StartsWith("S")).Count();
+
     static int[] ParseTrueAnswers(List<string[]> list)
     {
+        int qOffset    = 1 + SkillColumnCount(list[0]);
         string[] fields = list[1];
-        return Enumerable.Range(8, fields.Length - 8).Select(i => int.Parse(fields[i])).ToArray();
+        return Enumerable.Range(qOffset, fields.Length - qOffset).Select(i => int.Parse(fields[i])).ToArray();
     }
 
-    static int[][] ParsePersonAnswers(List<string[]> list) =>
-        list.Skip(2).Select(fields =>
-            Enumerable.Range(8, fields.Length - 8).Select(i => int.Parse(fields[i])).ToArray()
+    static int[][] ParsePersonAnswers(List<string[]> list)
+    {
+        int qOffset = 1 + SkillColumnCount(list[0]);
+        return list.Skip(2).Select(fields =>
+            Enumerable.Range(qOffset, fields.Length - qOffset).Select(i => int.Parse(fields[i])).ToArray()
         ).ToArray();
+    }
 
-    static bool[][] ParsePersonSkills(List<string[]> list) =>
-        list.Skip(2).Select(fields =>
-            Enumerable.Range(1, 7).Select(j => fields[j] == "True").ToArray()
+    static bool[][] ParsePersonSkills(List<string[]> list)
+    {
+        int numSkills = SkillColumnCount(list[0]);
+        return list.Skip(2).Select(fields =>
+            Enumerable.Range(1, numSkills).Select(j => fields[j] == "True").ToArray()
         ).ToArray();
+    }
 
     static int[][] ParseSkillsRequired(List<string[]> list) =>
         list.Select(values =>
