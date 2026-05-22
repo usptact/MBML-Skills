@@ -141,34 +141,34 @@ dotnet run --project MBML-Skills -- infer MBML-Skills/data --real
 
 ### Synthetic format
 
-Three headerless CSV files, all using `True`/`False` as cell values.
+Three headerless CSV files using `1` (true) and `0` (false) as cell values.
 
 **`skills_required.csv`** — $Q$ rows, $S$ columns.
-Row $q$, column $s$ is `True` if skill $s$ is required to answer question $q$ correctly.
-Every row must have at least one `True` (every question must test at least one skill).
+Row $q$, column $s$ is `1` if skill $s$ is required to answer question $q$ correctly.
+Every row must have at least one `1` (every question must test at least one skill).
 
 ```
-True,False,True,False,False
-False,True,False,True,True
+1,0,1,0,0
+0,1,0,1,1
 ...
 ```
 
 **`is_correct.csv`** — $P$ rows, $Q$ columns.
-Row $p$, column $q$ is `True` if person $p$ answered question $q$ correctly.
+Row $p$, column $q$ is `1` if person $p$ answered question $q$ correctly.
 
 ```
-True,False,True,True,False,True,...
-False,True,False,True,True,False,...
+1,0,1,1,0,1,...
+0,1,0,1,1,0,...
 ...
 ```
 
 **`person_skills.csv`** — $P$ rows, $S$ columns.
-Row $p$, column $s$ is `True` if person $p$ has skill $s$ (ground truth).
+Row $p$, column $s$ is `1` if person $p$ has skill $s$ (ground truth).
 This file is used only for display — it is not passed to the inference engine.
 
 ```
-True,False,True,True,False
-False,True,False,False,True
+1,0,1,1,0
+0,1,0,0,1
 ...
 ```
 

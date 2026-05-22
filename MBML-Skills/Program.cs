@@ -89,7 +89,7 @@ namespace MBMLSkills
         {
             using var writer = new StreamWriter(path);
             foreach (var row in matrix)
-                writer.WriteLine(string.Join(",", row));
+                writer.WriteLine(string.Join(",", row.Select(b => b ? 1 : 0)));
         }
 
         // ─── Infer command ─────────────────────────────────────────────────────────
@@ -197,7 +197,7 @@ namespace MBMLSkills
             return File.ReadAllLines(path)
                 .Select(line => line.Split(',')
                     .Select((v, i) => (v, i))
-                    .Where(x => x.v == "True")
+                    .Where(x => x.v == "1")
                     .Select(x => x.i)
                     .ToArray())
                 .ToArray();
@@ -206,7 +206,7 @@ namespace MBMLSkills
         static bool[][] ReadBoolMatrix(string path)
         {
             return File.ReadAllLines(path)
-                .Select(line => line.Split(',').Select(v => v == "True").ToArray())
+                .Select(line => line.Split(',').Select(v => v == "1").ToArray())
                 .ToArray();
         }
 
