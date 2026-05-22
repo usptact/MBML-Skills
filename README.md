@@ -38,14 +38,18 @@ Each question $q$ requires a known subset of skills $\mathcal{N}_q \subseteq \{1
 **Step 1 — Sample each person's skills.**
 Each person independently either has or lacks each skill, with equal prior probability:
 
-$$\text{skill}_{p,s} \sim \text{Bernoulli}(0.5) \qquad p = 1,\ldots,P \quad s = 1,\ldots,S$$
+$$
+\text{skill}_{p,s} \sim \text{Bernoulli}(0.5) \qquad p = 1,\ldots,P \quad s = 1,\ldots,S
+$$
 
 **Step 2 — Sample each question's guessing probability.**
 Each question has its own probability that someone without the required skills still
 answers correctly by guessing. This varies by question and is itself uncertain, so it
 gets a prior centred near 0.25 (consistent with a four-option multiple-choice format):
 
-$$\text{probGuess}_q \sim \text{Beta}(2.5,\; 7.5) \qquad q = 1,\ldots,Q$$
+$$
+\text{probGuess}_q \sim \text{Beta}(2.5,\; 7.5) \qquad q = 1,\ldots,Q
+$$
 
 The prior mean is $2.5 / (2.5 + 7.5) = 0.25$.
 
@@ -53,16 +57,20 @@ The prior mean is $2.5 / (2.5 + 7.5) = 0.25$.
 For each person $p$ and question $q$, first determine whether the person has *all* of
 the required skills:
 
-$$\text{hasSkills}_{p,q} = \bigwedge_{s \,\in\, \mathcal{N}_q} \text{skill}_{p,s}$$
+$$
+\text{hasSkills}_{p,q} = \bigwedge_{s \,\in\, \mathcal{N}_q} \text{skill}_{p,s}
+$$
 
 Then sample whether they answer correctly. If they have all the skills they may still
 make a mistake (fixed error rate of 10%); if they lack at least one skill they may still
 guess correctly:
 
-$$\text{isCorrect}_{p,q} \sim \begin{cases}
+$$
+\text{isCorrect}_{p,q} \sim \begin{cases}
 \text{Bernoulli}(0.9) & \text{if } \text{hasSkills}_{p,q} = \text{True} \\
 \text{Bernoulli}(\text{probGuess}_q) & \text{if } \text{hasSkills}_{p,q} = \text{False}
-\end{cases}$$
+\end{cases}
+$$
 
 ### Variables at a glance
 
@@ -82,14 +90,18 @@ over the latent variables given the observed quiz responses.
 
 **Per person, per skill** — a `Bernoulli` posterior:
 
-$$P(\text{skill}_{p,s} = \text{True} \mid \text{data})$$
+$$
+P(\text{skill}_{p,s} = \text{True} \mid \text{data})
+$$
 
 Values close to 1 indicate the model is confident the person has the skill; values close
 to 0.5 indicate the responses were not informative enough to update the prior.
 
 **Per question** — a `Beta` posterior over the guessing probability:
 
-$$P(\text{probGuess}_q \mid \text{data})$$
+$$
+P(\text{probGuess}_q \mid \text{data})
+$$
 
 Reported as the posterior mean. Questions where many unskilled people answered correctly
 will have higher inferred guessing rates.
