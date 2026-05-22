@@ -1,50 +1,41 @@
 using System;
 using System.Linq;
-using Microsoft.ML.Probabilistic.Distributions;
 
 namespace MBMLSkills;
 
 static class SyntheticDataGenerator
 {
-    public static SkillsDataset Generate(int numSkills, int numQuestions, int numPersons)
+    public static SkillsDataset Generate(int numSkills, int numQuestions, int numPersons, int? seed = null)
     {
-        var skillsRequired = SampleSkillsRequired(numSkills, numQuestions);
-        var personSkills   = SamplePersonSkills(numSkills, numPersons);
-        var isCorrect      = SampleIsCorrect(numPersons, numQuestions, skillsRequired, personSkills);
+        var rng = seed.HasValue ? new Random(seed.Value) : new Random();
+        var skillsRequired = SampleSkillsRequired(numSkills, numQuestions, rng);
+        var personSkills   = SamplePersonSkills(numSkills, numPersons, rng);
+        var isCorrect      = SampleIsCorrect(numPersons, numQuestions, skillsRequired, personSkills, rng);
         return SkillsDataset.Create(skillsRequired, isCorrect, personSkills);
     }
 
-    static int[][] SampleSkillsRequired(int numSkills, int numQuestions)
+    static int[][] SampleSkillsRequired(int numSkills, int numQuestions, Random rng)
     {
-        var coin = new Bernoulli(0.5);
-        var rng  = new Random();
         return Enumerable.Range(0, numQuestions).Select(q =>
         {
-            var list = Enumerable.Range(0, numSkills).Where(s => coin.Sample()).ToList();
+            var list = Enumerable.Range(0, numSkills).Where(s => rng.NextDouble() < 0.5).ToList();
             if (list.Count == 0) list.Add(rng.Next(numSkills));
             return list.ToArray();
         }).ToArray();
     }
 
-    static bool[][] SamplePersonSkills(int numSkills, int numPersons)
-    {
-        var coin = new Bernoulli(0.5);
-        return Enumerable.Range(0, numPersons)
-            .Select(p => Enumerable.Range(0, numSkills).Select(s => coin.Sample()).ToArray())
+    static bool[][] SamplePersonSkills(int numSkills, int numPersons, Random rng) =>
+        Enumerable.Range(0, numPersons)
+            .Select(p => Enumerable.Range(0, numSkills).Select(s => rng.NextDouble() < 0.5).ToArray())
             .ToArray();
-    }
 
     static bool[][] SampleIsCorrect(int numPersons, int numQuestions,
-                                    int[][] skillsRequired, bool[][] personSkills)
-    {
-        var hasSkillsCoin = new Bernoulli(0.9);
-        var noSkillsCoin  = new Bernoulli(0.1);
-        return Enumerable.Range(0, numPersons).Select(p =>
+                                    int[][] skillsRequired, bool[][] personSkills, Random rng) =>
+        Enumerable.Range(0, numPersons).Select(p =>
             Enumerable.Range(0, numQuestions).Select(q =>
             {
                 bool hasAll = skillsRequired[q].All(s => personSkills[p][s]);
-                return hasAll ? hasSkillsCoin.Sample() : noSkillsCoin.Sample();
+                return rng.NextDouble() < (hasAll ? 0.9 : 0.1);
             }).ToArray()
         ).ToArray();
-    }
 }

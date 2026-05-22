@@ -24,7 +24,7 @@ class Program
     static void PrintUsage()
     {
         Console.WriteLine("Usage:");
-        Console.WriteLine("  generate [--skills N] [--questions N] [--persons N] [--output DIR]");
+        Console.WriteLine("  generate [--skills N] [--questions N] [--persons N] [--output DIR] [--seed N]");
         Console.WriteLine("  infer <dir> [--real]");
         Console.WriteLine();
         Console.WriteLine("  generate  Sample synthetic data and write CSVs to DIR (default: synthetic-data).");
@@ -36,6 +36,7 @@ class Program
     {
         int numSkills = 5, numQuestions = 10, numPersons = 50;
         string outputDir = "synthetic-data";
+        int? seed = null;
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -45,6 +46,7 @@ class Program
                 case "--questions": numQuestions = int.Parse(args[++i]); break;
                 case "--persons":   numPersons   = int.Parse(args[++i]); break;
                 case "--output":    outputDir    = args[++i]; break;
+                case "--seed":      seed         = int.Parse(args[++i]); break;
                 default:
                     Console.Error.WriteLine($"Unknown option: {args[i]}");
                     PrintUsage();
@@ -52,7 +54,7 @@ class Program
             }
         }
 
-        var data = SyntheticDataGenerator.Generate(numSkills, numQuestions, numPersons);
+        var data = SyntheticDataGenerator.Generate(numSkills, numQuestions, numPersons, seed);
         DataIO.Write(outputDir, data);
         Console.WriteLine($"Generated {numPersons} persons, {numQuestions} questions, {numSkills} skills → {outputDir}/");
     }
@@ -81,10 +83,15 @@ class Program
                 Console.Write($"{result.SkillMarginals[p][j].GetProbTrue():N3} ");
             Console.WriteLine();
 
-            Console.Write($"           ground truth: ");
-            for (int j = 0; j < data.NumSkills; j++)
-                Console.Write($"{(data.PersonSkills[p][j] ? 1.0 : 0.0):N3} ");
-            Console.WriteLine("\n");
+            if (data.PersonSkills is not null)
+            {
+                Console.Write($"           ground truth: ");
+                for (int j = 0; j < data.NumSkills; j++)
+                    Console.Write($"{(data.PersonSkills[p][j] ? 1.0 : 0.0):N3} ");
+                Console.WriteLine();
+            }
+
+            Console.WriteLine();
         }
 
         for (int q = 0; q < data.NumQuestions; q++)

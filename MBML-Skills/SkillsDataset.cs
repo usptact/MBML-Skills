@@ -4,18 +4,22 @@ using System.Linq;
 namespace MBMLSkills;
 
 record SkillsDataset(
-    int[][]  SkillsRequired,  // [question][skill_index]
-    bool[][] IsCorrect,       // [person][question]
-    bool[][] PersonSkills     // [person][skill] — ground truth for display only
+    int[][]   SkillsRequired,  // [question][skill_index]
+    bool[][]  IsCorrect,       // [person][question]
+    bool[][]? PersonSkills     // [person][skill] — ground truth for display only; may be null
 )
 {
     public int NumPersons   => IsCorrect.Length;
     public int NumQuestions => SkillsRequired.Length;
-    public int NumSkills    => PersonSkills.Length > 0 ? PersonSkills[0].Length : 0;
 
-    public static SkillsDataset Create(int[][] skillsRequired, bool[][] isCorrect, bool[][] personSkills)
+    // When PersonSkills is absent, derive the minimum skill count from SkillsRequired.
+    public int NumSkills => PersonSkills is { Length: > 0 }
+        ? PersonSkills[0].Length
+        : SkillsRequired.SelectMany(q => q).DefaultIfEmpty(-1).Max() + 1;
+
+    public static SkillsDataset Create(int[][] skillsRequired, bool[][] isCorrect, bool[][]? personSkills)
     {
-        if (personSkills.Length != isCorrect.Length)
+        if (personSkills is not null && personSkills.Length != isCorrect.Length)
             throw new InvalidOperationException(
                 $"PersonSkills has {personSkills.Length} persons but IsCorrect has {isCorrect.Length}.");
 
@@ -25,12 +29,15 @@ record SkillsDataset(
                 $"IsCorrect[{badRow}] has {isCorrect[badRow].Length} entries " +
                 $"but SkillsRequired has {skillsRequired.Length} questions.");
 
-        int numSkills     = personSkills.Length > 0 ? personSkills[0].Length : 0;
-        int maxSkillIndex = skillsRequired.SelectMany(q => q).DefaultIfEmpty(-1).Max();
-        if (maxSkillIndex >= numSkills)
-            throw new InvalidOperationException(
-                $"SkillsRequired references skill index {maxSkillIndex} " +
-                $"but PersonSkills has only {numSkills} columns.");
+        if (personSkills is { Length: > 0 })
+        {
+            int numSkills     = personSkills[0].Length;
+            int maxSkillIndex = skillsRequired.SelectMany(q => q).DefaultIfEmpty(-1).Max();
+            if (maxSkillIndex >= numSkills)
+                throw new InvalidOperationException(
+                    $"SkillsRequired references skill index {maxSkillIndex} " +
+                    $"but PersonSkills has only {numSkills} columns.");
+        }
 
         return new SkillsDataset(skillsRequired, isCorrect, personSkills);
     }

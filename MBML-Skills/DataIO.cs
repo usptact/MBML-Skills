@@ -14,16 +14,19 @@ static class DataIO
         Directory.CreateDirectory(dir);
         WriteBoolMatrix(Path.Combine(dir, "skills_required.csv"), IndicesToMask(data.SkillsRequired, data.NumSkills));
         WriteBoolMatrix(Path.Combine(dir, "is_correct.csv"), data.IsCorrect);
-        WriteBoolMatrix(Path.Combine(dir, "person_skills.csv"), data.PersonSkills);
+        if (data.PersonSkills is not null)
+            WriteBoolMatrix(Path.Combine(dir, "person_skills.csv"), data.PersonSkills);
     }
 
     public static SkillsDataset ReadSynthetic(string dir)
     {
         string Require(string name) => RequireFile(Path.Combine(dir, name), "run 'generate' first");
+        string personSkillsPath = Path.Combine(dir, "person_skills.csv");
+        bool[][]? personSkills = File.Exists(personSkillsPath) ? ReadBoolMatrix(personSkillsPath) : null;
         return SkillsDataset.Create(
             ReadSkillsRequired(Require("skills_required.csv")),
             ReadBoolMatrix(Require("is_correct.csv")),
-            ReadBoolMatrix(Require("person_skills.csv"))
+            personSkills
         );
     }
 

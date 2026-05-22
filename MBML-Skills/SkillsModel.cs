@@ -7,6 +7,8 @@ namespace MBMLSkills;
 
 static class SkillsModel
 {
+    static readonly InferenceEngine _engine = new();
+
     public static InferenceResult Run(SkillsDataset data)
     {
         Range person    = new Range(data.NumPersons).Named("persons");
@@ -49,10 +51,9 @@ static class SkillsModel
 
         isCorrectVar.ObservedValue = data.IsCorrect;
 
-        var engine = new InferenceEngine();
         return new InferenceResult(
-            engine.Infer<Bernoulli[][]>(skill),
-            engine.Infer<Beta[]>(probGuess)
+            _engine.Infer<Bernoulli[][]>(skill),
+            _engine.Infer<Beta[]>(probGuess)
         );
     }
 }
