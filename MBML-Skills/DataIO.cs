@@ -17,19 +17,24 @@ static class DataIO
         WriteBoolMatrix(Path.Combine(dir, "person_skills.csv"), data.PersonSkills);
     }
 
-    public static SkillsDataset ReadSynthetic(string dir) => SkillsDataset.Create(
-        ReadSkillsRequired(Path.Combine(dir, "skills_required.csv")),
-        ReadBoolMatrix(Path.Combine(dir, "is_correct.csv")),
-        ReadBoolMatrix(Path.Combine(dir, "person_skills.csv"))
-    );
+    public static SkillsDataset ReadSynthetic(string dir)
+    {
+        string Require(string name) => RequireFile(Path.Combine(dir, name), "run 'generate' first");
+        return SkillsDataset.Create(
+            ReadSkillsRequired(Require("skills_required.csv")),
+            ReadBoolMatrix(Require("is_correct.csv")),
+            ReadBoolMatrix(Require("person_skills.csv"))
+        );
+    }
 
     // ─── Real data format ──────────────────────────────────────────────────────
 
     public static SkillsDataset ReadReal(string dir)
     {
-        var skillsData   = ReadCSV(Path.Combine(dir,
+        string Require(string name) => RequireFile(Path.Combine(dir, name), $"expected in {dir}");
+        var skillsData    = ReadCSV(Require(
             "LearningSkills_Real_Data_Experiments-Original-Inputs-Quiz-SkillsQuestionsMask.csv"));
-        var responsesData = ReadCSV(Path.Combine(dir,
+        var responsesData = ReadCSV(Require(
             "LearningSkills_Real_Data_Experiments-Original-Inputs-RawResponsesAsDictionary.csv"));
 
         return SkillsDataset.Create(
@@ -73,6 +78,13 @@ static class DataIO
             .ToArray();
 
     // ─── Real data helpers ─────────────────────────────────────────────────────
+
+    static string RequireFile(string path, string hint)
+    {
+        if (!File.Exists(path))
+            throw new FileNotFoundException($"Required file not found: {path} — {hint}", path);
+        return path;
+    }
 
     static List<string[]> ReadCSV(string path)
     {
