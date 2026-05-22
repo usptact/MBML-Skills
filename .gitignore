@@ -42,3 +42,9 @@ Thumbs.db
 # visual studio
 .vs/
 
+# Infer.NET auto-generated model source
+GeneratedSource/
+
+# generated data
+synthetic-data/
+
